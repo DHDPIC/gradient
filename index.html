@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Camera or Image Display</title>
     <!-- p5.js library -->
     <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
@@ -26,7 +27,7 @@
         margin: 8px;
         padding: 24px 32px;
         font-size: 16px;
-        background-color:darkorchid;
+        background-color:linen;
     }
     </style>
   </head>
@@ -40,6 +41,14 @@
 
     <script>
       let canvas // the p5 canvas
+
+      let constraints = {
+        video: {
+            facingMode: "environment"  // request rear camera
+        },
+        audio: false
+      };
+
       let cam;
       let imgLoaded = null;
       let showImage = false;
@@ -57,7 +66,7 @@
         canvas.touchStarted(handleMousePressed);
         canvas.touchEnded(handleMouseReleased);
         
-        cam = createCapture(VIDEO);
+        cam = createCapture(constraints);
         cam.size(windowWidth, windowHeight);
         cam.hide();
 
@@ -85,7 +94,6 @@
 
         imgRender = createGraphics(windowWidth,windowHeight);
         imgRender.background(255,255,0);
-        imgRender.ellipse(0,0,50,50);
         //
         drwRender = createGraphics(windowWidth,windowHeight);
         //
