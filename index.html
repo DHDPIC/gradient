@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Camera or Image Display</title>
+    <!-- p5.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        touch-action: none; /* disables scroll/zoom gestures on canvas */
+      }
+      #controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 10;
+      }
+      button, input[type="file"] {
+        margin-right: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+        <button id="clearBtn">Clear Grad</button>
+        <button id="saveGradBtn">Save Grad</button>
+      <input type="file" id="fileInput" accept="image/*">
+      <button id="toggleBtn">Show Camera</button>
+    </div>
+
+    <script>
+      let canvas // the p5 canvas
+      let cam;
+      let imgLoaded = null;
+      let showImage = false;
+
+      let imgRender = null; // place to render the image
+      let drwRender = null; // place to render the gradient drawings
+      let drawing = false; // store if we are drawing or not
+      let drwPoints = []; // array to store drawn points
+      let grdRender = null; // place to render gradient
+
+      function setup() {
+        canvas = createCanvas(windowWidth, windowHeight);
+        canvas.mousePressed(handleMousePressed);
+        canvas.mouseReleased(handleMouseReleased);
+        canvas.touchStarted(handleMousePressed);
+        canvas.touchEnded(handleMouseReleased);
+        
+        cam = createCapture(VIDEO);
+        cam.size(windowWidth, windowHeight);
+        cam.hide();
+
+        // Clear Gradient
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            drwPoints = [];
+            drwRender.clear();
+        });
+
+        // Save Gradient
+        document.getElementById('saveGradBtn').addEventListener('click', () => {
+            grdRender.save("grad-"+ Date.now() +".png");
+        });
+
+        // File input
+        document.getElementById('fileInput').addEventListener('change', handleFile);
+
+        // Toggle button
+        document.getElementById('toggleBtn').addEventListener('click', () => {
+          if (imgLoaded) {
+            showImage = !showImage;
+            document.getElementById('toggleBtn').innerText = showImage ? "Show Camera" : "Show Image";
+          }
+        });
+
+        imgRender = createGraphics(windowWidth,windowHeight);
+        imgRender.background(255,255,0);
+        imgRender.ellipse(0,0,50,50);
+        //
+        drwRender = createGraphics(windowWidth,windowHeight);
+        //
+        grdRender = createGraphics(windowWidth, 60);
+      }
+
+      function draw() {
+        background(255,0,0);
+
+        // image work
+        if (imgLoaded && showImage) {
+          //image(img, 0, 0, width, height);
+          imgRender.copy(imgLoaded,0,0,imgLoaded.width,imgLoaded.height,0,0, windowWidth,windowHeight);
+        } else {
+          //image(cam, 0, 0, width, height);
+          imgRender = cam.get();
+        }
+        
+
+        // drawing work
+        drwRender.clear();
+        drwRender.stroke(255,128);
+        let dl = drwPoints.length-1;
+        //console.log(dl);
+        if(drawing) {
+            //console.log("cap");
+            //let col = imgRender.get(mouseX,mouseY);
+            if(dl >= 0) {
+                let r = dist(mouseX,mouseY,drwPoints[dl].x,drwPoints[dl].y);
+                if(r>5) {
+                    drwPoints.push({x:mouseX,y:mouseY,c:"col"});
+                }
+            } else {
+                drwPoints.push({x:mouseX,y:mouseY,c:"col"});
+            }
+        }
+        for(let i=0; i<drwPoints.length-1; i++) {
+            //drwRender.stroke(drwPoints[i].c[0],drwPoints[i].c[1],drwPoints[i].c[2]); //get historical points
+            let col = imgRender.get(drwPoints[i].x,drwPoints[i].y);
+            //drwRender.stroke(col[0],col[1],col[2]); //not getting local color
+            drwRender.line(drwPoints[i].x,drwPoints[i].y,drwPoints[i+1].x,drwPoints[i+1].y);
+        }
+
+        // make gradient
+        grdRender.clear();
+        grdRender.background(255);
+        grdRender.strokeWeight(2);
+        let d = grdRender.width/(drwPoints.length-1);
+        //console.log(grdRender.width);
+        for(let i=0; i<drwPoints.length-1; i++) {
+            let get1 = imgRender.get(drwPoints[i].x,drwPoints[i].y);
+            let get2 = imgRender.get(drwPoints[i+1].x,drwPoints[i+1].y);
+            let col1 = color(get1[0],get1[1],get1[2]);
+            let col2 = color(get2[0],get2[1],get2[2]);
+            
+            for(let j=0; j<d; j++) {
+                let inc = j/d;
+                let cl = lerpColor(col1,col2,inc);
+                grdRender.stroke(cl);
+                grdRender.line(i*d+j,5,i*d+j,55);
+            }
+            // simple render 1 line per drawn point
+            //grdRender.stroke(col1);
+            //grdRender.line(i*d,50,i*d,100);
+        }
+
+        // render all bits
+        image(imgRender,0,0);
+        image(drwRender,0,0);
+        image(grdRender,0,50);
+      }
+
+      function handleMousePressed() {
+        drawing = true;
+        console.log("do some drawing");
+      }
+
+      function handleMouseReleased() {
+        drawing = false;
+      }
+
+      function touchStarted() {
+        //handleMousePressed();
+        return false; // prevent default scrolling
+      }
+
+      function touchEnded() {
+        //handleMouseReleased();
+        return false;
+      }
+
+      function handleFile(event) {
+        let file = event.target.files[0];
+        if (file && file.type.startsWith('image')) {
+          let reader = new FileReader();
+          reader.onload = e => {
+            loadImage(e.target.result, loadedImg => {
+              imgLoaded = loadedImg;
+              showImage = true;
+              document.getElementById('toggleBtn').innerText = "Show Camera";
+            });
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+
+      function windowResized() {
+        resizeCanvas(windowWidth, windowHeight);
+        imgRender = createGraphics(windowWidth, windowHeight);
+        drwRender = createGraphics(windowWidth, windowHeight);
+        grdRender = createGraphics(windowWidth, 60);
+      }
+    </script>
+  </body>
+</html>
