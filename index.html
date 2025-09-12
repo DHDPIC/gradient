@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Camera or Image Display</title>
     <!-- p5.js library -->
     <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
@@ -24,19 +24,21 @@
         z-index: 10;
       }
       button, input[type="file"] {
-        margin: 8px;
-        padding: 24px 32px;
-        font-size: 16px;
+        margin: 2px;
+        padding: 8px 12px;
+        font-size: 12px;
         background-color:linen;
-    }
+        border-radius: 12px;
+        border: none;
+      }
     </style>
   </head>
   <body>
     <div id="controls">
         <button id="clearBtn">Clear Grad</button>
         <button id="saveGradBtn">Save Grad</button>
-      <input type="file" id="fileInput" accept="image/*">
-      <button id="toggleBtn">Show Camera</button>
+        <input type="file" id="fileInput" accept="image/*">
+        <button id="toggleBtn">Show Camera</button>
     </div>
 
     <script>
@@ -58,6 +60,7 @@
       let drawing = false; // store if we are drawing or not
       let drwPoints = []; // array to store drawn points
       let grdRender = null; // place to render gradient
+      let rndBackground = null;
 
       function setup() {
         canvas = createCanvas(windowWidth, windowHeight);
@@ -98,10 +101,19 @@
         drwRender = createGraphics(windowWidth,windowHeight);
         //
         grdRender = createGraphics(windowWidth, 60);
+        // create a randomgradient as a fun backdrop on load
+        rndBackground = createGraphics(windowWidth,windowHeight);
+        let c1 = color(random(255), random(255), random(255));
+        let c2 = color(random(255), random(255), random(255));
+        for(let x=0; x<windowWidth; x++) {
+            let cl = lerpColor(c1,c2,x/windowWidth);
+            rndBackground.stroke(cl);
+            rndBackground.line(x,0,x,windowHeight);
+        }
       }
 
       function draw() {
-        background(255,0,0);
+        background(0);
 
         // image work
         if (imgLoaded && showImage) {
@@ -163,9 +175,11 @@
         }
 
         // render all bits
+        image(rndBackground,0,0);
         image(imgRender,0,0);
         image(drwRender,0,0);
         image(grdRender,0,50);
+        
       }
 
       function handleMousePressed() {
