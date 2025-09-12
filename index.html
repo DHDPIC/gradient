@@ -37,9 +37,12 @@
   <body>
     <div id="controls">
         <button id="clearBtn">Clear Grad</button>
-        <button id="saveGradBtn">Save Grad</button>
+        <button id="freezeGradBtn">Freeze Grad</button>
+        <button id="exportGradBtn">Export Grad</button>
         <input type="file" id="fileInput" accept="image/*">
         <button id="toggleBtn">Show Camera</button>
+        <button id="MapGradBtn">Map Grad</button>
+        <button id="exportImageBtn">Export Image</button>
     </div>
 
     <script>
@@ -55,6 +58,10 @@
       let cam;
       let imgLoaded = null;
       let showImage = false;
+
+      let freezeGrad = false; // toggle if grad is frozen
+      let mapGrad = false; // apply the gradient to the image!
+      let gradientMap = null;
 
       let imgRender = null; // place to render the image
       let drwRender = null; // place to render the gradient drawings
@@ -80,9 +87,25 @@
             drwRender.clear();
         });
 
-        // Save Gradient
-        document.getElementById('saveGradBtn').addEventListener('click', () => {
+        // Freeze Gradient
+        document.getElementById('freezeGradBtn').addEventListener('click', () => {
+            freezeGrad = !freezeGrad;
+            document.getElementById('freezeGradBtn').innerText = !freezeGrad ? "Freeze Grad" : "Live Grad";
+        });
+
+        // export Gradient image
+        document.getElementById('exportGradBtn').addEventListener('click', () => {
             grdRender.save("grad-"+ Date.now() +".png");
+        });
+
+        // Map Gradient
+        document.getElementById('MapGradBtn').addEventListener('click', () => {
+            freezeGrad = true;
+            document.getElementById('freezeGradBtn').innerText = "Live Grad";
+            mapGrad = !mapGrad;
+            // make the gradient
+            //gradientMap = createGradientLUT(color(0, 0, 0), color(255, 0, 0));
+            gradientMap = createBigGradientLUT(drwPoints);
         });
 
         // File input
@@ -94,6 +117,11 @@
             showImage = !showImage;
             document.getElementById('toggleBtn').innerText = showImage ? "Show Camera" : "Show Image";
           }
+        });
+
+        // export Gradient image
+        document.getElementById('exportImageBtn').addEventListener('click', () => {
+            imgRender.save("img-"+ Date.now() +".png");
         });
 
         imgRender = createGraphics(windowWidth,windowHeight);
@@ -131,48 +159,115 @@
         drwRender.stroke(255,128);
         let dl = drwPoints.length-1;
         //console.log(dl);
-        if(drawing) {
-            // get the color, store, however this isn't correct if the images moves
-            // and we want to get the values at time of save/map
-            //let mget = imgRender.get(mouseX,mouseY);
-            //console.log(mget);
-            if(dl >= 0) {
-                let r = dist(mouseX,mouseY,drwPoints[dl].x,drwPoints[dl].y);
-                if(r>5) {
-                    drwPoints.push({x:mouseX,y:mouseY,c:"mget"});
-                }
-            } else {
-                drwPoints.push({x:mouseX,y:mouseY,c:"mget"});
-            }
-        }
-        for(let i=0; i<drwPoints.length-1; i++) {
-            //drwRender.stroke(drwPoints[i].c[0],drwPoints[i].c[1],drwPoints[i].c[2]); //get historical points
-            let col = imgRender.get(drwPoints[i].x,drwPoints[i].y);
-            //drwRender.stroke(col[0],col[1],col[2]); //not getting local color
-            drwRender.line(drwPoints[i].x,drwPoints[i].y,drwPoints[i+1].x,drwPoints[i+1].y);
-        }
 
-        // make gradient
-        grdRender.clear();
-        grdRender.background(255);
-        grdRender.strokeWeight(2);
-        let d = grdRender.width/(drwPoints.length-1);
-        //console.log(grdRender.width);
-        for(let i=0; i<drwPoints.length-1; i++) {
-            let get1 = imgRender.get(drwPoints[i].x,drwPoints[i].y);
-            let get2 = imgRender.get(drwPoints[i+1].x,drwPoints[i+1].y);
-            let col1 = color(get1[0],get1[1],get1[2]);
-            let col2 = color(get2[0],get2[1],get2[2]);
-            
-            for(let j=0; j<d; j++) {
-                let inc = j/d;
-                let cl = lerpColor(col1,col2,inc);
-                grdRender.stroke(cl);
-                grdRender.line(i*d+j,5,i*d+j,55);
+        // big branch are we getting gradients or mapping them
+
+        if(!mapGrad) {
+
+            // add points?
+            if(!freezeGrad) {
+                if(drawing) {
+                    // get the color, store, however this isn't correct if the images moves
+                    // and we want to get the values at time of save/map
+                    let mget = imgRender.get(mouseX,mouseY);
+                    //console.log(mget);
+                    if(dl >= 0) {
+                        let r = dist(mouseX,mouseY,drwPoints[dl].x,drwPoints[dl].y);
+                        if(r>5) {
+                            drwPoints.push({x:mouseX,y:mouseY,c:mget});
+                        }
+                    } else {
+                        drwPoints.push({x:mouseX,y:mouseY,c:mget});
+                    }
+                }
             }
-            // simple render 1 line per drawn point
-            //grdRender.stroke(col1);
-            //grdRender.line(i*d,50,i*d,100);
+
+            // draw existing line
+            drwRender.strokeWeight(4);
+            for(let i=0; i<drwPoints.length-1; i++) {
+                //drwRender.stroke(drwPoints[i].c[0],drwPoints[i].c[1],drwPoints[i].c[2]); //get historical points
+                let col = imgRender.get(drwPoints[i].x,drwPoints[i].y);
+                //drwRender.stroke(col[0],col[1],col[2]); //not getting local color
+                drwRender.line(drwPoints[i].x,drwPoints[i].y,drwPoints[i+1].x,drwPoints[i+1].y);
+            }
+
+            // make gradient
+            grdRender.clear();
+            grdRender.background(255);
+            grdRender.strokeWeight(2);
+            let d = grdRender.width/(drwPoints.length-1);
+            //console.log(grdRender.width);
+            for(let i=0; i<drwPoints.length-1; i++) {
+                if(!freezeGrad) {
+                    drwPoints[i].c = imgRender.get(drwPoints[i].x,drwPoints[i].y);
+                    drwPoints[i+1].c = imgRender.get(drwPoints[i+1].x,drwPoints[i+1].y);
+                }
+                let get1 = drwPoints[i].c//imgRender.get(drwPoints[i].x,drwPoints[i].y);
+                let get2 = drwPoints[i+1].c//imgRender.get(drwPoints[i+1].x,drwPoints[i+1].y);
+                let col1 = color(get1[0],get1[1],get1[2]);
+                let col2 = color(get2[0],get2[1],get2[2]);
+                
+                for(let j=0; j<d; j++) {
+                    let inc = j/d;
+                    let cl = lerpColor(col1,col2,inc);
+                    grdRender.stroke(cl);
+                    grdRender.line(i*d+j,5,i*d+j,55);
+                }
+                // simple render 1 line per drawn point
+                //grdRender.stroke(col1);
+                //grdRender.line(i*d,50,i*d,100);
+            }
+
+        } else {
+            /*let gradientColors = [
+                color(0, 0, 255), // Blue
+                color(0, 255, 0), // Green
+                color(255, 0, 0)  // Red
+            ];
+            imgRender.loadPixels();
+            for (let i = 0; i < imgRender.pixels.length; i += 4) {
+                let r = imgRender.pixels[i];
+                let g = imgRender.pixels[i + 1];
+                let b = imgRender.pixels[i + 2];
+
+                // Calculate brightness (you can use other methods too)
+                let brightness = (r + g + b) / 3;
+
+                // Map brightness to a position in the gradient (0 to 1)
+                let gradientPosition = map(brightness, 0, 255, 0, 1);
+
+                // Interpolate color from the gradient
+                let newColor;
+                if (gradientPosition <= 0.5) {
+                // Interpolate between gradientColors[0] and gradientColors[1]
+                let mappedPos = map(gradientPosition, 0, 0.5, 0, 1);
+                newColor = lerpColor(gradientColors[0], gradientColors[1], mappedPos);
+                } else {
+                // Interpolate between gradientColors[1] and gradientColors[2]
+                let mappedPos = map(gradientPosition, 0.5, 1, 0, 1);
+                newColor = lerpColor(gradientColors[1], gradientColors[2], mappedPos);
+                }
+
+                imgRender.pixels[i] = red(newColor);
+                imgRender.pixels[i + 1] = green(newColor);
+                imgRender.pixels[i + 2] = blue(newColor);
+                // Alpha remains the same: image.pixels[i + 3]
+            }
+            imgRender.updatePixels();
+            */
+
+            imgRender.loadPixels();
+            for (let i = 0; i < imgRender.pixels.length; i += 4) {
+                // grayscale intensity
+                let brightness = 0.3 * imgRender.pixels[i] + 0.59 * imgRender.pixels[i + 1] + 0.11 * imgRender.pixels[i + 2];
+                let col = gradientMap[Math.floor(brightness)];
+                
+                imgRender.pixels[i + 0] = col[0]; // R
+                imgRender.pixels[i + 1] = col[1]; // G
+                imgRender.pixels[i + 2] = col[2]; // B
+                imgRender.pixels[i + 3] = 255;    // A
+            }
+            imgRender.updatePixels();
         }
 
         // render all bits
@@ -183,6 +278,40 @@
         
       }
 
+      // ---- LUT helper ----
+      function createGradientLUT(c1, c2) {
+        let lut = [];
+        for (let i = 0; i < 256; i++) {
+            let amt = i / 255;
+            let r = lerp(red(c1), red(c2), amt);
+            let g = lerp(green(c1), green(c2), amt);
+            let b = lerp(blue(c1), blue(c2), amt);
+            lut.push([r, g, b]);
+        }
+        return lut;
+      }
+
+      function createBigGradientLUT(colors) {
+
+        //let div = 256/colors.length;
+        let tmp = createGraphics(256,grdRender.height);
+        tmp.copy(grdRender,0,0,grdRender.width,grdRender.height, 0,0,256,tmp.height);
+        let lut = [];
+        for (let i = 0; i < 256; i++) {
+            //let amt = i / 255;
+            //let r = lerp(red(c1), red(c2), amt);
+            //let g = lerp(green(c1), green(c2), amt);
+            //let b = lerp(blue(c1), blue(c2), amt);
+            //lut.push([r, g, b]);
+            let c = tmp.get(i,tmp.height/2);
+            lut.push([c[0], c[1], c[2]]);
+            
+        }
+        return lut;
+      }
+
+      
+      // - - - interaction
       function handleMousePressed() {
         drawing = true;
         console.log("do some drawing");
