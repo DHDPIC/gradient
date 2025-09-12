@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Camera or Image Display</title>
+    <!-- google font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@64,900&display=swap" rel="stylesheet">
     <!-- p5.js library -->
     <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
     <style>
@@ -115,7 +119,7 @@
         document.getElementById('toggleBtn').addEventListener('click', () => {
           if (imgLoaded) {
             showImage = !showImage;
-            document.getElementById('toggleBtn').innerText = showImage ? "Show Camera" : "Show Image";
+            document.getElementById('toggleBtn').innerText = showImage ? "Flip to Camera" : "Flip to Image";
           }
         });
 
@@ -139,6 +143,10 @@
             rndBackground.stroke(cl);
             rndBackground.line(x,0,x,windowHeight);
         }
+        rndBackground.textSize(64);
+        rndBackground.textFont("Anybody");
+        rndBackground.textAlign(CENTER, CENTER);
+        rndBackground.text("GRADIENT",width/2,height/2);
       }
 
       function draw() {
