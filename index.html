@@ -15,39 +15,99 @@
         margin: 0;
         padding: 0;
         overflow: hidden;
+        font-family: sans-serif;
       }
       canvas {
         display: block;
         touch-action: none; /* disables scroll/zoom gestures on canvas */
         z-index: 0;
       }
-      #controls {
-        position: absolute;
-        bottom: 10px;
-        left: 10px;
-        z-index: 10;
-      }
-      button, input[type="file"] {
-        margin: 2px;
-        padding: 8px 12px;
-        font-size: 12px;
-        background-color:linen;
-        border-radius: 12px;
-        border: none;
-      }
+      /* base (desktop-first): 4 columns, each max 120px, left-aligned */
+#controls {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 8px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 120px)); /* each column up to 120px */
+  gap: 8px;
+  justify-content: start; /* left-align columns */
+  z-index: 10;
+}
+
+#controls > div {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;   /* buttons fill the column width */
+}
+
+/* Make buttons / label consistent */
+button,
+.button-like {
+  margin: 4px 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 300;
+  background-color: linen;
+  border-radius: 12px;
+  border: none;
+  text-align: center;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* hidden native file input */
+input[type="file"][hidden] {
+  display: none;
+}
+
+/* MOBILE: make columns equal width across the full width */
+@media (max-width: 600px) {
+  #controls {
+    grid-template-columns: repeat(4, 1fr); /* 4 equal columns */
+    gap: 8px;
+    padding: 8px;
+  }
+
+  button,
+  .button-like {
+    font-size: 12px;
+    padding: 8px 8px;
+  }
+}
+
 
     </style>
   </head>
   <body>
     <div id="controls">
-        <button id="clearBtn">Clear Grad</button>
-        <button id="freezeGradBtn">Freeze Grad</button>
-        <button id="exportGradBtn">Export Grad</button>
-        <input type="file" id="fileInput" accept="image/*">
-        <button id="toggleBtn">Show Camera</button>
-        <button id="MapGradBtn">Map Grad</button>
-        <button id="exportImageBtn">Export Image</button>
-    </div>
+  <div>
+    <button id="clearBtn">Clear Grad</button>
+    <button id="freezeGradBtn">Freeze Grad</button>
+  </div>
+
+  <div>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+    <label for="fileInput" class="button-like">Load Image</label>
+    <button id="toggleBtn">Show Camera</button>
+  </div>
+
+  <div>
+    <button id="MapGradBtn">Map Grad</button>
+  </div>
+
+  <div>
+    <button id="exportGradBtn">Export Grad</button>
+    <button id="exportImageBtn">Export Image</button>
+  </div>
+</div>
+
 
     <script>
       let canvas // the p5 canvas
