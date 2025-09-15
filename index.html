@@ -23,90 +23,90 @@
         z-index: 0;
       }
       /* base (desktop-first): 4 columns, each max 120px, left-aligned */
-#controls {
-  position: absolute;
-  bottom: 8px;
-  left: 0;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0 8px;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 120px)); /* each column up to 120px */
-  gap: 8px;
-  justify-content: start; /* left-align columns */
-  z-index: 10;
-}
+    #controls {
+        position: absolute;
+        bottom: 8px;
+        left: 0;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0 8px;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 120px)); /* each column up to 120px */
+        gap: 8px;
+        justify-content: start; /* left-align columns */
+        z-index: 10;
+    }
 
-#controls > div {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;   /* buttons fill the column width */
-}
+    #controls > div {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;   /* buttons fill the column width */
+    }
 
-/* Make buttons / label consistent */
-button,
-.button-like {
-  margin: 4px 0;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-family: inherit;
-  font-weight: 300;
-  background-color: linen;
-  border-radius: 12px;
-  border: none;
-  text-align: center;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  width: 100%;
-  box-sizing: border-box;
-}
+        /* Make buttons / label consistent */
+    button,
+    .button-like {
+        margin: 4px 0;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-family: inherit;
+        font-weight: 300;
+        background-color: linen;
+        border-radius: 12px;
+        border: none;
+        text-align: center;
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+        width: 100%;
+        box-sizing: border-box;
+    }
 
-/* hidden native file input */
-input[type="file"][hidden] {
-  display: none;
-}
+        /* hidden native file input */
+    input[type="file"][hidden] {
+        display: none;
+    }
 
-/* MOBILE: make columns equal width across the full width */
-@media (max-width: 600px) {
-  #controls {
-    grid-template-columns: repeat(4, 1fr); /* 4 equal columns */
-    gap: 8px;
-    padding: 8px;
-  }
+    /* MOBILE: make columns equal width across the full width */
+    @media (max-width: 600px) {
+        #controls {
+            grid-template-columns: repeat(4, 1fr); /* 4 equal columns */
+            gap: 8px;
+            padding: 8px;
+        }
 
-  button,
-  .button-like {
-    font-size: 12px;
-    padding: 8px 8px;
-  }
-}
+        button,
+        .button-like {
+            font-size: 12px;
+            padding: 8px 8px;
+        }
+    }
 
 
-    </style>
-  </head>
-  <body>
-    <div id="controls">
-  <div>
-    <button id="clearBtn">Clear Grad</button>
-    <button id="freezeGradBtn">Freeze Grad</button>
-  </div>
+</style>
+</head>
+    <body>
+        <div id="controls">
+    <div>
+        <button id="clearBtn">Clear Grad</button>
+        <button id="freezeGradBtn">Freeze Grad</button>
+    </div>
 
-  <div>
-    <input type="file" id="fileInput" accept="image/*" hidden>
-    <label for="fileInput" class="button-like">Load Image</label>
-    <button id="toggleBtn">Show Camera</button>
-  </div>
+    <div>
+        <input type="file" id="fileInput" accept="image/*" hidden>
+        <label for="fileInput" class="button-like">Load Image</label>
+        <button id="toggleBtn">Show Camera</button>
+    </div>
 
-  <div>
-    <button id="MapGradBtn">Map Grad</button>
-  </div>
+    <div>
+        <button id="MapGradBtn">Map Grad</button>
+    </div>
 
-  <div>
-    <button id="exportGradBtn">Export Grad</button>
-    <button id="exportImageBtn">Export Image</button>
-  </div>
-</div>
+    <div>
+        <button id="exportGradBtn">Export Grad</button>
+        <button id="exportImageBtn">Export Image</button>
+    </div>
+    </div>
 
 
     <script>
@@ -163,12 +163,15 @@ input[type="file"][hidden] {
         document.getElementById('clearBtn').addEventListener('click', () => {
             drwPoints = [];
             drwRender.clear();
+            //
+            freezeGrad = false;
+            document.getElementById('freezeGradBtn').innerText = !freezeGrad ? "Freeze Grad" : "Unfreeze Grad";
         });
 
         // Freeze Gradient
         document.getElementById('freezeGradBtn').addEventListener('click', () => {
             freezeGrad = !freezeGrad;
-            document.getElementById('freezeGradBtn').innerText = !freezeGrad ? "Freeze Grad" : "Live Grad";
+            document.getElementById('freezeGradBtn').innerText = !freezeGrad ? "Freeze Grad" : "Unfreeze Grad";
         });
 
         // export Gradient image
@@ -179,8 +182,9 @@ input[type="file"][hidden] {
         // Map Gradient
         document.getElementById('MapGradBtn').addEventListener('click', () => {
             freezeGrad = true;
-            document.getElementById('freezeGradBtn').innerText = "Live Grad";
+            document.getElementById('freezeGradBtn').innerText = "Unfreeze Grad";
             mapGrad = !mapGrad;
+            document.getElementById('MapGradBtn').innerText = !mapGrad ? "Map Grad" : "Unmap Grad";
             // make the gradient
             //gradientMap = createGradientLUT(color(0, 0, 0), color(255, 0, 0));
             gradientMap = createBigGradientLUT(drwPoints);
