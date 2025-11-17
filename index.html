@@ -96,6 +96,17 @@
         }
     }
 
+    #feedback {
+      width: 80px;
+      position: fixed;
+      top: 8px;
+      right: 8px;
+    }
+
+    #feedbackBtn {
+      background-color: #6A09E0;
+      color: #E3E1B2;
+    }
 
 </style>
 </head>
@@ -124,8 +135,16 @@
     </div>
     </div>
 
+    <div id="feedback">
+      <button id="feedbackBtn" onclick='window.open("https://forms.gle/E8kWpjCS8WEujQVf8","_blank")' >Feedback & Sign Up</button>
+    </div>
+
 
     <script>
+
+      //
+      let feedbackBtn = document.querySelector("#feedbackBtn");
+      feedback
       // Video recording variables
       let isRecording = false;
       let mediaRecorder = null;
