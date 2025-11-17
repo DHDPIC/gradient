@@ -295,7 +295,7 @@
           
           document.getElementById('exportGradBtn').addEventListener('click', () => {
             if (grdRender) {
-              downloadPGraphics(grdRender, 'gradient-only');
+              downloadPGraphics(grdRender, 'gradient-scheme');
             }
           });
 
@@ -318,8 +318,8 @@
           
           // Create a separate canvas for recording imgRender
           recordingCanvas = document.createElement('canvas');
-          recordingCanvas.width = imgRender.width;
-          recordingCanvas.height = imgRender.height;
+          recordingCanvas.width = imgRender.width*window.devicePixelRatio; //launch
+          recordingCanvas.height = imgRender.height*window.devicePixelRatio; ////launch
           recordingCanvas.style.display = 'none';
           document.body.appendChild(recordingCanvas);
           
