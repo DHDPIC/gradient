@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Camera or Image Display</title>
+    <title>Gradient - Capture and Create</title>
     <!-- google font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51,7 +51,7 @@
         font-size: 12px;
         font-family: inherit;
         font-weight: 300;
-        background-color: linen;
+        background-color: #E3E1B2;
         border-radius: 12px;
         border: none;
         text-align: center;
@@ -60,6 +60,20 @@
         -webkit-appearance: none;
         width: 100%;
         box-sizing: border-box;
+        color: black;
+    }
+
+    /* Recording button styles */
+    .recording {
+        background-color: #6A09E0;
+        color: white;
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0% { background-color: #6A09E0 }
+        50% { background-color: #F5A009 }
+        100% { background-color: #6A09E0 }
     }
 
         /* hidden native file input */
@@ -85,22 +99,12 @@
 
 </style>
 </head>
-
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ER7W0CW61W"></script>
-    <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'G-ER7W0CW61W');
-    </script>
-
     <body>
         <div id="controls">
     <div>
+        <button id="freezeGradBtn">Lock Grad</button>
+        <button id="flipGradBtn">Flip Grad</button>
         <button id="clearBtn">Clear Grad</button>
-        <button id="freezeGradBtn">Freeze Grad</button>
     </div>
 
     <div>
@@ -116,11 +120,293 @@
     <div>
         <button id="exportGradBtn">Export Grad</button>
         <button id="exportImageBtn">Export Image</button>
+        <button id="exportVideoBtn">Record Video</button>
     </div>
     </div>
 
 
     <script>
+      // Video recording variables
+      let isRecording = false;
+      let mediaRecorder = null;
+      let recordedChunks = [];
+      let recordingCanvas = null;
+      let recordingStream = null;
+
+      // Prevent multiple initializations
+      let isInitialized = false;
+      
+      // Wait for Capacitor to be ready before initializing
+      document.addEventListener('deviceready', initializeCapacitor, false);
+      
+      // Fallback for web/testing
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeCapacitor);
+      } else {
+        initializeCapacitor();
+      }
+
+      function initializeCapacitor() {
+        if (isInitialized) {
+          console.log('Already initialized, skipping...');
+          return;
+        }
+        
+        console.log('Initializing Capacitor plugins...');
+        isInitialized = true;
+        
+        // Check if we're running in Capacitor
+        if (window.Capacitor && window.Capacitor.Plugins) {
+          console.log('Capacitor is available');
+          
+          // Import the Media plugin from capacitor-community
+          const { Media } = window.Capacitor.Plugins;
+          
+          // Helper to save PGraphics as PNG
+          async function savePGraphics(pg, filename = 'gradient-image') {
+            if (!Media) {
+              console.error('Media plugin not available!');
+              alert('Media plugin not available. Make sure @capacitor-community/media is installed.');
+              return;
+            }
+
+            try {
+              console.log('Converting image to base64...');
+              
+              // Convert p5 PGraphics to base64
+              const dataUrl = pg.canvas.toDataURL("image/png");
+
+              console.log('Saving photo to camera roll...');
+              
+              // Use the savePhoto method from capacitor-community/media
+              // The path parameter accepts data URLs directly
+              const result = await Media.savePhoto({
+                path: dataUrl,
+                albumIdentifier: undefined, // Optional - will save to camera roll if not specified
+                fileName: filename + '_' + Date.now() // Optional filename (Android only)
+              });
+              
+              console.log('Photo saved successfully:', result);
+              //alert('Image saved to Photos successfully!');
+              
+            } catch (error) {
+              console.error('Error saving photo:', error);
+              alert('Failed to save image: ' + (error.message || JSON.stringify(error)));
+            }
+          }
+
+          // Helper to save video blob
+          async function saveVideo(blob, filename = 'gradient-video') {
+            if (!Media) {
+              console.error('Media plugin not available!');
+              alert('Media plugin not available.');
+              return;
+            }
+
+            try {
+              console.log('Converting video to base64...');
+              
+              // Convert blob to base64
+              const reader = new FileReader();
+              reader.onload = async function(event) {
+                const dataUrl = event.target.result;
+                
+                console.log('Saving video to camera roll...');
+                
+                try {
+                  const result = await Media.saveVideo({
+                    path: dataUrl,
+                    albumIdentifier: undefined,
+                    fileName: filename + '_' + Date.now()
+                  });
+                  
+                  console.log('Video saved successfully:', result);
+                  //alert('Video saved to Photos successfully!');
+                  
+                } catch (error) {
+                  console.error('Error saving video:', error);
+                  alert('Failed to save video: ' + (error.message || JSON.stringify(error)));
+                }
+              };
+              reader.readAsDataURL(blob);
+              
+            } catch (error) {
+              console.error('Error processing video:', error);
+              alert('Failed to process video: ' + error.message);
+            }
+          }
+
+          // Bind the save functions to buttons
+          document.getElementById('exportImageBtn').addEventListener('click', () => {
+            //console.log('Export Image button clicked');
+            if (imgRender) {
+              savePGraphics(imgRender, 'gradient-mapped-image');
+            } else {
+              alert('No image to export');
+            }
+          });
+          
+          document.getElementById('exportGradBtn').addEventListener('click', () => {
+            //console.log('Export Gradient button clicked');
+            if (grdRender) {
+              savePGraphics(grdRender, 'gradient-only');
+            } else {
+              alert('No gradient to export');
+            }
+          });
+
+          // Video recording functionality
+          document.getElementById('exportVideoBtn').addEventListener('click', () => {
+            if (isRecording) {
+              stopVideoRecording();
+            } else {
+              startVideoRecording();
+            }
+          });
+
+          // Make saveVideo available globally for the recording functions
+          window.saveVideoToPhotos = saveVideo;
+          
+        } else {
+          console.warn('Capacitor not available - running in web mode');
+          
+          // Fallback for web - download files instead
+          function downloadPGraphics(pg, filename) {
+            const link = document.createElement('a');
+            link.download = filename + '.png';
+            link.href = pg.canvas.toDataURL();
+            link.click();
+          }
+
+          function downloadVideo(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = filename + '.webm';
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+          }
+          
+          document.getElementById('exportImageBtn').addEventListener('click', () => {
+            if (imgRender) {
+              downloadPGraphics(imgRender, 'gradient-image');
+            }
+          });
+          
+          document.getElementById('exportGradBtn').addEventListener('click', () => {
+            if (grdRender) {
+              downloadPGraphics(grdRender, 'gradient-scheme');
+            }
+          });
+
+          document.getElementById('exportVideoBtn').addEventListener('click', () => {
+            if (isRecording) {
+              stopVideoRecording();
+            } else {
+              startVideoRecording();
+            }
+          });
+
+          // Make download function available for web fallback
+          window.saveVideoToPhotos = downloadVideo;
+        }
+      }
+
+      function startVideoRecording() {
+        try {
+          console.log('Starting video recording...');
+          
+          // Create a separate canvas for recording imgRender
+          recordingCanvas = document.createElement('canvas');
+          recordingCanvas.width = imgRender.width*window.devicePixelRatio; //launch
+          recordingCanvas.height = imgRender.height*window.devicePixelRatio; ////launch
+          recordingCanvas.style.display = 'none';
+          document.body.appendChild(recordingCanvas);
+          
+          // Get recording stream from the canvas
+          recordingStream = recordingCanvas.captureStream(30); // 30 FPS
+          
+          // Try different MIME types for iOS compatibility
+          let options;
+          if (MediaRecorder.isTypeSupported('video/mp4')) {
+            options = { mimeType: 'video/mp4' };
+          } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+            options = { mimeType: 'video/webm;codecs=vp8' };
+          } else if (MediaRecorder.isTypeSupported('video/webm')) {
+            options = { mimeType: 'video/webm' };
+          } else {
+            // No options - let MediaRecorder choose
+            options = {};
+          }
+          
+          console.log('Using MediaRecorder options:', options);
+          
+          // Set up MediaRecorder
+          mediaRecorder = new MediaRecorder(recordingStream, options);
+          
+          recordedChunks = [];
+          
+          mediaRecorder.ondataavailable = function(event) {
+            if (event.data.size > 0) {
+              recordedChunks.push(event.data);
+            }
+          };
+          
+          mediaRecorder.onstop = function() {
+            console.log('Recording stopped, processing video...');
+            // Use the actual MIME type from the recorded data
+            const mimeType = recordedChunks[0].type || 'video/webm';
+            const blob = new Blob(recordedChunks, { type: mimeType });
+            
+            console.log('Created blob with type:', blob.type);
+            
+            // Save video using Capacitor or download for web
+            if (window.saveVideoToPhotos) {
+              window.saveVideoToPhotos(blob, 'gradient-video');
+            }
+            
+            // Clean up
+            document.body.removeChild(recordingCanvas);
+            recordingCanvas = null;
+            recordingStream = null;
+          };
+          
+          // Start recording
+          mediaRecorder.start();
+          isRecording = true;
+          
+          // Update button appearance
+          const btn = document.getElementById('exportVideoBtn');
+          btn.innerText = 'Record Stop';
+          btn.classList.add('recording');
+          
+        } catch (error) {
+          console.error('Error starting recording:', error);
+          alert('Failed to start recording: ' + error.message);
+        }
+      }
+
+      function stopVideoRecording() {
+        if (mediaRecorder && isRecording) {
+          console.log('Stopping video recording...');
+          mediaRecorder.stop();
+          isRecording = false;
+          
+          // Update button appearance
+          const btn = document.getElementById('exportVideoBtn');
+          btn.innerText = 'Record Video';
+          btn.classList.remove('recording');
+        }
+      }
+
+      // Function to copy imgRender to recording canvas
+      function updateRecordingCanvas() {
+        if (recordingCanvas && imgRender) {
+          const ctx = recordingCanvas.getContext('2d');
+          ctx.drawImage(imgRender.canvas, 0, 0);
+        }
+      }
+
       let canvas // the p5 canvas
 
       let constraints = {
@@ -135,6 +421,7 @@
       let showImage = false;
 
       let freezeGrad = false; // toggle if grad is frozen
+      let flipGrad = false; // do we flip the direction of the gradient
       let mapGrad = false; // apply the gradient to the image!
       let gradientMap = null;
 
@@ -166,8 +453,13 @@
         canvas.touchStarted(handleMousePressed);
         canvas.touchEnded(handleMouseReleased);
         
-        cam = createCapture(constraints);
-        cam.size(windowWidth, windowHeight);
+        cam = createCapture(constraints, () => console.log("Camera ready"));
+        //cam.size(windowWidth, windowHeight);
+        //
+        cam.style('opacity', '0');
+        cam.parent(document.body);
+        cam.elt.setAttribute('playsinline', true);
+        cam.elt.muted = true;
         cam.hide();
 
         // Clear Gradient
@@ -176,29 +468,37 @@
             drwRender.clear();
             //
             freezeGrad = false;
-            document.getElementById('freezeGradBtn').innerText = !freezeGrad ? "Freeze Grad" : "Unfreeze Grad";
+            document.getElementById('freezeGradBtn').innerText = !freezeGrad ? "Lock Grad" : "Unlock Grad";
+            mapGrad = false;
+            document.getElementById('MapGradBtn').innerText = !mapGrad ? "Map Grad" : "Unmap Grad";
         });
 
         // Freeze Gradient
         document.getElementById('freezeGradBtn').addEventListener('click', () => {
             freezeGrad = !freezeGrad;
-            document.getElementById('freezeGradBtn').innerText = !freezeGrad ? "Freeze Grad" : "Unfreeze Grad";
+            document.getElementById('freezeGradBtn').innerText = !freezeGrad ? "Lock Grad" : "Unlock Grad";
         });
 
-        // export Gradient image
-        document.getElementById('exportGradBtn').addEventListener('click', () => {
-            grdRender.save("grad-"+ Date.now() +".png");
+        // Flip Gradient
+        document.getElementById('flipGradBtn').addEventListener('click', () => {
+            flipGrad = !flipGrad;
+            console.log("flip gradient", flipGrad);
+            drwPoints.reverse();
+            if(mapGrad) {
+              console.log("make new gradient map", mapGrad);
+              drawGradient();
+              gradientMap = createBigGradientLUT();
+            }
         });
 
         // Map Gradient
         document.getElementById('MapGradBtn').addEventListener('click', () => {
             freezeGrad = true;
-            document.getElementById('freezeGradBtn').innerText = "Unfreeze Grad";
+            document.getElementById('freezeGradBtn').innerText = "Unlock Grad";
             mapGrad = !mapGrad;
             document.getElementById('MapGradBtn').innerText = !mapGrad ? "Map Grad" : "Unmap Grad";
             // make the gradient
-            //gradientMap = createGradientLUT(color(0, 0, 0), color(255, 0, 0));
-            gradientMap = createBigGradientLUT(drwPoints);
+            gradientMap = createBigGradientLUT();
         });
 
         // File input
@@ -212,17 +512,12 @@
           }
         });
 
-        // export Gradient image
-        document.getElementById('exportImageBtn').addEventListener('click', () => {
-            imgRender.save("img-"+ Date.now() +".png");
-        });
-
         imgRender = createGraphics(windowWidth,windowHeight);
         imgRender.background(255,255,0);
         //
         drwRender = createGraphics(windowWidth,windowHeight);
         //
-        grdRender = createGraphics(windowWidth, 60);
+        grdRender = createGraphics(windowWidth, 80);
         // create a randomgradient as a fun backdrop on load
         rndBackground = createGraphics(windowWidth,windowHeight);
         let c1 = color(random(255), random(255), random(255));
@@ -232,24 +527,23 @@
             rndBackground.stroke(cl);
             rndBackground.line(x,0,x,windowHeight);
         }
-        /*rndBackground.textSize(64);
-        rndBackground.textFont("Anybody");
-        rndBackground.textAlign(CENTER, CENTER);
-        rndBackground.text("GRADIENT",width/2,height/2);*/
         
         rndBackground.image(svgImg, width/2 - svgImg.width/4, height/2 - svgImg.height/4, svgImg.width/2, svgImg.height/2);
       }
 
       function draw() {
+        image(cam, 0, 0, width, height);
         background(0);
 
         // image work
         if (imgLoaded && showImage) {
-          //image(img, 0, 0, width, height);
-          imgRender.copy(imgLoaded,0,0,imgLoaded.width,imgLoaded.height,0,0, windowWidth,windowHeight);
+          //imgRender.copy(imgLoaded,0,0,imgLoaded.width,imgLoaded.height,0,0, windowWidth,windowHeight);
+          drawToGraphicsPreserveRatio(imgLoaded, imgRender);
         } else {
-          //image(cam, 0, 0, width, height);
-          imgRender = cam.get();
+          //imgRender = cam.get();
+          imgRender.clear();
+          //drawToGraphicsPreserveRatio(cam, imgRender);
+          drawToGraphicsCover(cam, imgRender);
         }
         
 
@@ -257,7 +551,6 @@
         drwRender.clear();
         drwRender.stroke(255,128);
         let dl = drwPoints.length-1;
-        //console.log(dl);
 
         // big branch are we getting gradients or mapping them
 
@@ -269,104 +562,54 @@
                     // get the color, store, however this isn't correct if the images moves
                     // and we want to get the values at time of save/map
                     let mget = imgRender.get(mouseX,mouseY);
-                    //console.log(mget);
                     if(dl >= 0) {
-                        let r = dist(mouseX,mouseY,drwPoints[dl].x,drwPoints[dl].y);
-                        if(r>5) {
-                            drwPoints.push({x:mouseX,y:mouseY,c:mget});
+                      if(flipGrad) {
+                        let r = dist(mouseX,mouseY,drwPoints[0].x,drwPoints[0].y);
+                        if(r>10) {
+                          drwPoints.unshift({x:mouseX,y:mouseY,c:mget});
                         }
+                      } else {
+                        let r = dist(mouseX,mouseY,drwPoints[dl].x,drwPoints[dl].y);
+                        if(r>10) {
+                          drwPoints.push({x:mouseX,y:mouseY,c:mget});
+                        }
+                      }
                     } else {
                         drwPoints.push({x:mouseX,y:mouseY,c:mget});
                     }
                 }
             }
 
-            // draw existing line
+            // render drawn line
             drwRender.strokeWeight(4);
             for(let i=0; i<drwPoints.length-1; i++) {
-                //drwRender.stroke(drwPoints[i].c[0],drwPoints[i].c[1],drwPoints[i].c[2]); //get historical points
-                let col = imgRender.get(drwPoints[i].x,drwPoints[i].y);
-                //drwRender.stroke(col[0],col[1],col[2]); //not getting local color
+                //let col = imgRender.get(drwPoints[i].x,drwPoints[i].y);
                 drwRender.line(drwPoints[i].x,drwPoints[i].y,drwPoints[i+1].x,drwPoints[i+1].y);
             }
 
             // make gradient
-            grdRender.clear();
-            grdRender.background(255);
-            grdRender.strokeWeight(2);
-            let d = grdRender.width/(drwPoints.length-1);
-            //console.log(grdRender.width);
-            for(let i=0; i<drwPoints.length-1; i++) {
-                if(!freezeGrad) {
-                    drwPoints[i].c = imgRender.get(drwPoints[i].x,drwPoints[i].y);
-                    drwPoints[i+1].c = imgRender.get(drwPoints[i+1].x,drwPoints[i+1].y);
-                }
-                let get1 = drwPoints[i].c//imgRender.get(drwPoints[i].x,drwPoints[i].y);
-                let get2 = drwPoints[i+1].c//imgRender.get(drwPoints[i+1].x,drwPoints[i+1].y);
-                let col1 = color(get1[0],get1[1],get1[2]);
-                let col2 = color(get2[0],get2[1],get2[2]);
-                
-                for(let j=0; j<d; j++) {
-                    let inc = j/d;
-                    let cl = lerpColor(col1,col2,inc);
-                    grdRender.stroke(cl);
-                    grdRender.line(i*d+j,5,i*d+j,55);
-                }
-                // simple render 1 line per drawn point
-                //grdRender.stroke(col1);
-                //grdRender.line(i*d,50,i*d,100);
-            }
+            drawGradient();
 
         } else {
-            /*let gradientColors = [
-                color(0, 0, 255), // Blue
-                color(0, 255, 0), // Green
-                color(255, 0, 0)  // Red
-            ];
-            imgRender.loadPixels();
-            for (let i = 0; i < imgRender.pixels.length; i += 4) {
-                let r = imgRender.pixels[i];
-                let g = imgRender.pixels[i + 1];
-                let b = imgRender.pixels[i + 2];
 
-                // Calculate brightness (you can use other methods too)
-                let brightness = (r + g + b) / 3;
+          if(!freezeGrad) {
+            gradientMap = createBigGradientLUT();
+          }
 
-                // Map brightness to a position in the gradient (0 to 1)
-                let gradientPosition = map(brightness, 0, 255, 0, 1);
-
-                // Interpolate color from the gradient
-                let newColor;
-                if (gradientPosition <= 0.5) {
-                // Interpolate between gradientColors[0] and gradientColors[1]
-                let mappedPos = map(gradientPosition, 0, 0.5, 0, 1);
-                newColor = lerpColor(gradientColors[0], gradientColors[1], mappedPos);
-                } else {
-                // Interpolate between gradientColors[1] and gradientColors[2]
-                let mappedPos = map(gradientPosition, 0.5, 1, 0, 1);
-                newColor = lerpColor(gradientColors[1], gradientColors[2], mappedPos);
-                }
-
-                imgRender.pixels[i] = red(newColor);
-                imgRender.pixels[i + 1] = green(newColor);
-                imgRender.pixels[i + 2] = blue(newColor);
-                // Alpha remains the same: image.pixels[i + 3]
-            }
-            imgRender.updatePixels();
-            */
-
-            imgRender.loadPixels();
-            for (let i = 0; i < imgRender.pixels.length; i += 4) {
-                // grayscale intensity
-                let brightness = 0.3 * imgRender.pixels[i] + 0.59 * imgRender.pixels[i + 1] + 0.11 * imgRender.pixels[i + 2];
-                let col = gradientMap[Math.floor(brightness)];
-                
-                imgRender.pixels[i + 0] = col[0]; // R
-                imgRender.pixels[i + 1] = col[1]; // G
-                imgRender.pixels[i + 2] = col[2]; // B
-                imgRender.pixels[i + 3] = 255;    // A
-            }
-            imgRender.updatePixels();
+           // make gradient
+          drawGradient();
+          imgRender.loadPixels();
+          for (let i = 0; i < imgRender.pixels.length; i += 4) {
+              // grayscale intensity
+              let brightness = 0.3 * imgRender.pixels[i] + 0.59 * imgRender.pixels[i + 1] + 0.11 * imgRender.pixels[i + 2];
+              let col = gradientMap[Math.floor(brightness)];
+              
+              imgRender.pixels[i + 0] = col[0]; // R
+              imgRender.pixels[i + 1] = col[1]; // G
+              imgRender.pixels[i + 2] = col[2]; // B
+              imgRender.pixels[i + 3] = 255;    // A
+          }
+          imgRender.updatePixels();
         }
 
         // render all bits
@@ -375,6 +618,37 @@
         image(drwRender,0,0);
         image(grdRender,0,0);
         
+        // Update recording canvas if recording
+        if (isRecording) {
+          updateRecordingCanvas();
+        }
+      }
+
+      function drawGradient() {
+        // make gradient
+        grdRender.clear();
+        grdRender.background(255);
+        grdRender.strokeWeight(2);
+        let d = grdRender.width/(drwPoints.length-1);
+        //console.log(grdRender.width);
+        
+        for(let i=0; i<drwPoints.length-1; i++) {
+          if(!freezeGrad) {
+              drwPoints[i].c = imgRender.get(drwPoints[i].x,drwPoints[i].y);
+              drwPoints[i+1].c = imgRender.get(drwPoints[i+1].x,drwPoints[i+1].y);
+          }
+          let get1 = drwPoints[i].c//imgRender.get(drwPoints[i].x,drwPoints[i].y);
+          let get2 = drwPoints[i+1].c//imgRender.get(drwPoints[i+1].x,drwPoints[i+1].y);
+          let col1 = color(get1[0],get1[1],get1[2]);
+          let col2 = color(get2[0],get2[1],get2[2]);
+          
+          for(let j=0; j<d; j++) {
+              let inc = j/d;
+              let cl = lerpColor(col1,col2,inc);
+              grdRender.stroke(cl);
+              grdRender.line(i*d+j,5,i*d+j,75);
+          }
+        }
       }
 
       // ---- LUT helper ----
@@ -390,30 +664,73 @@
         return lut;
       }
 
-      function createBigGradientLUT(colors) {
-
+      function createBigGradientLUT() {
+        //console.log("make big LUT");
         //let div = 256/colors.length;
         let tmp = createGraphics(256,grdRender.height);
         tmp.copy(grdRender,0,0,grdRender.width,grdRender.height, 0,0,256,tmp.height);
         let lut = [];
         for (let i = 0; i < 256; i++) {
-            //let amt = i / 255;
-            //let r = lerp(red(c1), red(c2), amt);
-            //let g = lerp(green(c1), green(c2), amt);
-            //let b = lerp(blue(c1), blue(c2), amt);
-            //lut.push([r, g, b]);
             let c = tmp.get(i,tmp.height/2);
-            lut.push([c[0], c[1], c[2]]);
-            
+            lut.push([c[0], c[1], c[2]]);   
         }
         return lut;
+      }
+
+      function drawToGraphicsPreserveRatio(src, target) {
+        const srcRatio = src.width / src.height;
+        const dstRatio = target.width / target.height;
+
+        let drawW, drawH, offsetX, offsetY;
+
+        if (srcRatio > dstRatio) {
+          // Source is wider than target
+          drawW = target.width;
+          drawH = target.width / srcRatio;
+          offsetX = 0;
+          offsetY = (target.height - drawH) / 2;
+        } else {
+          // Source is taller than target
+          drawH = target.height;
+          drawW = target.height * srcRatio;
+          offsetY = 0;
+          offsetX = (target.width - drawW) / 2;
+        }
+
+        target.background(0);
+
+        target.copy(src, 0,0,src.width, src.height, offsetX, offsetY, drawW, drawH);
+      }
+
+      function drawToGraphicsCover(src, target) {
+        const srcRatio = src.width / src.height;
+        const dstRatio = target.width / target.height;
+
+        let drawW, drawH, offsetX, offsetY;
+
+        if (srcRatio > dstRatio) {
+          // Source is wider, crop sides
+          drawH = target.height;
+          drawW = target.height * srcRatio;
+          offsetY = 0;
+          offsetX = (target.width - drawW) / 2;
+        } else {
+          // Source is taller, crop top/bottom
+          drawW = target.width;
+          drawH = target.width / srcRatio;
+          offsetX = 0;
+          offsetY = (target.height - drawH) / 2;
+        }
+
+        target.clear();
+        target.image(src, offsetX, offsetY, drawW, drawH);
       }
 
       
       // - - - interaction
       function handleMousePressed() {
         drawing = true;
-        console.log("do some drawing");
+        //console.log("do some drawing");
       }
 
       function handleMouseReleased() {
